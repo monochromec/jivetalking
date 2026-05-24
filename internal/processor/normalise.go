@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -741,7 +742,8 @@ func prepareLoudnormApplication(request loudnormApplicationRequest) (*loudnormAp
 		return nil, fmt.Errorf("failed to open input: %w", err)
 	}
 
-	tempPath, err := createSiblingTempPath(request.inputPath, "loudnorm")
+	outputExt := filepath.Ext(request.inputPath)
+	tempPath, err := createSiblingTempPath(request.inputPath, "loudnorm", outputExt)
 	if err != nil {
 		reader.Close()
 		return nil, fmt.Errorf("failed to create loudnorm temp output: %w", err)

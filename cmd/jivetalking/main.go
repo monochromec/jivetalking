@@ -25,6 +25,8 @@ var version = "dev"
 
 var errCancelledByUser = errors.New("cancelled by user")
 
+var quiet = false
+
 const debugLogPath = "jivetalking-debug.log"
 
 var createDebugLogFile = os.Create
@@ -34,6 +36,8 @@ type CLI struct {
 	Version             bool          `short:"v" help:"Show version information"`
 	Debug               bool          `short:"d" help:"Enable debug logging to jivetalking-debug.log"`
 	AnalysisOnly        bool          `short:"a" help:"Run analysis only (Pass 1), display results, skip processing"`
+	Quiet               bool          `short:"q" help:"Suppress non-error console output"`
+	MP3                 bool          `help:"Write MP3 output instead of FLAC"`
 	SilenceScanDuration time.Duration `help:"Cap silence-candidate scan to the first DURATION of input (e.g. 30s, 1m30s). Faster on long files at the cost of coverage; loudness, true peak, LRA, spectral, and speech analysis remain whole-file. Fewer silence candidates also reach voice-activated detection when capped. 0s means scan the whole file." placeholder:"DURATION" default:"0s"`
 	Files               []string      `arg:"" name:"files" help:"Audio files to process" type:"existingfile" optional:""`
 }
@@ -60,6 +64,9 @@ func main() {
 		os.Exit(0)
 	}
 
+	quiet = cliArgs.Quiet
+	cli.SetQuiet(quiet)
+
 	// Validate input
 	if len(cliArgs.Files) == 0 {
 		cli.PrintError("No input files specified")
@@ -75,6 +82,9 @@ func main() {
 	// Create default filter configuration
 	config := processor.DefaultFilterConfig()
 	config.Analysis.SilenceScanDuration = cliArgs.SilenceScanDuration
+	if cliArgs.MP3 {
+		config.OutputFormat = "mp3"
+	}
 
 	// Open debug log file if --debug flag is set
 	debugLog, err := openDebugLog(cliArgs.Debug)
@@ -96,7 +106,16 @@ func main() {
 
 	// Handle analysis-only mode: run Pass 1 and display results, skip TUI
 	if cliArgs.AnalysisOnly {
-		runAnalysisOnly(cliArgs.Files, config, log)
+		if quiet {
+			runAnalysisOnlyQuietly(cliArgs.Files, config, log)
+		} else {
+			runAnalysisOnly(cliArgs.Files, config, log)
+		}
+		return
+	}
+
+	if quiet {
+		runProcessingQuietly(cliArgs.Files, config, log)
 		return
 	}
 
@@ -290,6 +309,41 @@ func (ph *progressHandler) callback(update processor.ProgressUpdate) {
 // then displays results to console. Skips full 4-pass processing.
 func runAnalysisOnly(files []string, config *processor.BaseFilterConfig, log func(string, ...any)) {
 	runAnalysisOnlyWithDeps(files, config, log, defaultAnalysisOnlyDeps())
+}
+
+func runAnalysisOnlyQuietly(files []string, config *processor.BaseFilterConfig, log func(string, ...any)) {
+	for _, inputPath := range files {
+		log("[ANALYSIS] Starting silent analysis for %s", inputPath)
+
+		result, analysisErr := processor.AnalyzeOnlyDetailed(inputPath, config, nil)
+		if analysisErr != nil {
+			if errors.Is(analysisErr, errCancelledByUser) {
+				return
+			}
+			cli.PrintError(fmt.Sprintf("Analysis failed for %s: %v", inputPath, analysisErr))
+			continue
+		}
+
+		_ = result
+	}
+}
+
+func runProcessingQuietly(files []string, config *processor.BaseFilterConfig, log func(string, ...any)) {
+	for _, inputPath := range files {
+		fileStartTime := time.Now()
+		log("[MAIN] Starting silent processing for %s", inputPath)
+
+		result, err := processor.ProcessAudio(inputPath, config, nil)
+		if err != nil {
+			cli.PrintError(fmt.Sprintf("Processing failed for %s: %v", inputPath, err))
+			continue
+		}
+
+		reportData := buildProcessingReportData(inputPath, fileStartTime, logging.ProcessingTimings{}, result)
+		if err := logging.GenerateReport(reportData); err != nil {
+			log("[MAIN] Failed to generate log file: %v", err)
+		}
+	}
 }
 
 func runAnalysisOnlyWithDeps(files []string, config *processor.BaseFilterConfig, log func(string, ...any), deps analysisOnlyDeps) {

@@ -239,6 +239,10 @@ func (linear LinearAmplitude) Float64() float64 {
 // BaseFilterConfig holds caller-owned defaults and user-facing options only.
 type BaseFilterConfig struct {
 	filterConfigDefaults
+
+	// OutputFormat controls the format used for the final encoded output.
+	// Supported values: "flac", "mp3".
+	OutputFormat string
 }
 
 // AdaptiveFilterResult holds a complete per-file set of tunable filter values.
@@ -309,7 +313,10 @@ type EffectiveFilterConfig filterConfigDefaults
 // DefaultFilterConfig returns the scientifically-tuned caller-owned defaults for
 // podcast spoken word audio processing.
 func DefaultFilterConfig() *BaseFilterConfig {
-	return &BaseFilterConfig{filterConfigDefaults: defaultFilterConfigDefaults()}
+	return &BaseFilterConfig{
+		filterConfigDefaults: defaultFilterConfigDefaults(),
+		OutputFormat:         "flac",
+	}
 }
 
 func defaultFilterConfigDefaults() filterConfigDefaults {

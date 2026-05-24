@@ -1041,7 +1041,11 @@ func requireLoudnormProgressEvent(t *testing.T, got loudnormProgressEvent, want 
 }
 
 func oldFixedLoudnormTempPath(inputPath string) string {
-	return strings.TrimSuffix(inputPath, filepath.Ext(inputPath)) + ".loudnorm.tmp.flac"
+	ext := filepath.Ext(inputPath)
+	if ext == "" {
+		ext = ".flac"
+	}
+	return strings.TrimSuffix(inputPath, filepath.Ext(inputPath)) + ".loudnorm.tmp" + ext
 }
 
 func requireLoudnormTempPath(t *testing.T, inputPath, tempPath string) {
@@ -1051,8 +1055,12 @@ func requireLoudnormTempPath(t *testing.T, inputPath, tempPath string) {
 		t.Fatalf("temp file dir = %q, want %q", filepath.Dir(tempPath), filepath.Dir(inputPath))
 	}
 	base := filepath.Base(tempPath)
-	if !strings.HasPrefix(base, ".loudnorm-") || !strings.HasSuffix(base, ".tmp.flac") {
-		t.Fatalf("temp file basename = %q, want .loudnorm-*.tmp.flac", base)
+	ext := filepath.Ext(inputPath)
+	if ext == "" {
+		ext = ".flac"
+	}
+	if !strings.HasPrefix(base, ".loudnorm-") || !strings.HasSuffix(base, ".tmp"+ext) {
+		t.Fatalf("temp file basename = %q, want .loudnorm-*.tmp%s", base, ext)
 	}
 	if tempPath == oldFixedLoudnormTempPath(inputPath) {
 		t.Fatalf("temp file path = %q, want non-fixed loudnorm temp path", tempPath)
@@ -1062,7 +1070,11 @@ func requireLoudnormTempPath(t *testing.T, inputPath, tempPath string) {
 func requireNoLoudnormTempFiles(t *testing.T, inputPath string) {
 	t.Helper()
 
-	matches, err := filepath.Glob(filepath.Join(filepath.Dir(inputPath), ".loudnorm-*.tmp.flac"))
+	ext := filepath.Ext(inputPath)
+	if ext == "" {
+		ext = ".flac"
+	}
+	matches, err := filepath.Glob(filepath.Join(filepath.Dir(inputPath), ".loudnorm-*.tmp"+ext))
 	if err != nil {
 		t.Fatalf("failed to glob loudnorm temp files: %v", err)
 	}

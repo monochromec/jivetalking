@@ -29,13 +29,14 @@ func (e *DestinationExistsError) Unwrap() error {
 }
 
 // createSiblingTempPath creates a hidden, same-directory temp path whose basename
-// includes the marker and ends in .tmp.flac; tests pin the exact naming pattern.
-func createSiblingTempPath(targetPath, marker string) (string, error) {
+// includes the marker and ends in .tmp.<ext>.
+func createSiblingTempPath(targetPath, marker, ext string) (string, error) {
 	if marker == "" || filepath.Base(marker) != marker {
 		return "", fmt.Errorf("invalid temp marker: %q", marker)
 	}
 
-	tempFile, err := os.CreateTemp(filepath.Dir(targetPath), "."+marker+"-*.tmp.flac")
+	ext = normalizeExtension(ext)
+	tempFile, err := os.CreateTemp(filepath.Dir(targetPath), "."+marker+"-*.tmp"+ext)
 	if err != nil {
 		return "", fmt.Errorf("failed to create temporary output next to %s: %w", targetPath, err)
 	}
@@ -47,6 +48,16 @@ func createSiblingTempPath(targetPath, marker string) (string, error) {
 	}
 
 	return tempPath, nil
+}
+
+func normalizeExtension(ext string) string {
+	if ext == "" {
+		return ".flac"
+	}
+	if ext[0] != '.' {
+		return "." + ext
+	}
+	return ext
 }
 
 // renameNoClobber publishes a same-directory temp file by linking src to dst,

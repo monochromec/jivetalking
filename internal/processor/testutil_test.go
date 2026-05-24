@@ -233,8 +233,8 @@ func cleanupTestAudio(tb testing.TB, path string) {
 	}
 
 	tempPatterns := []string{
-		filepath.Join(filepath.Dir(path), ".processing-*.tmp.flac"),
-		filepath.Join(filepath.Dir(path), ".loudnorm-*.tmp.flac"),
+		filepath.Join(filepath.Dir(path), ".processing-*.tmp.*"),
+		filepath.Join(filepath.Dir(path), ".loudnorm-*.tmp.*"),
 	}
 	for _, pattern := range tempPatterns {
 		matches, _ := filepath.Glob(pattern)
@@ -247,7 +247,7 @@ func cleanupTestAudio(tb testing.TB, path string) {
 func assertNoProcessingTempFiles(tb testing.TB, dir string) {
 	tb.Helper()
 
-	matches, err := filepath.Glob(filepath.Join(dir, ".processing-*.tmp.flac"))
+	matches, err := filepath.Glob(filepath.Join(dir, ".processing-*.tmp.*"))
 	if err != nil {
 		tb.Fatalf("failed to glob processing temp files in %s: %v", dir, err)
 	}

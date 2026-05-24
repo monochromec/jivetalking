@@ -14,26 +14,28 @@ import (
 	"github.com/linuxmatters/jivetalking/internal/audio"
 )
 
-// TestGenerateLUFSOutputPath verifies the final LUFS-tagged output path is always FLAC.
+// TestGenerateLUFSOutputPath verifies the final LUFS-tagged output path uses the configured output extension.
 func TestGenerateLUFSOutputPath(t *testing.T) {
 	cases := []struct {
-		name  string
-		input string
-		want  string
+		name      string
+		input     string
+		outputExt string
+		want      string
 	}{
-		{"lowercase wav", "/tmp/foo.wav", "/tmp/foo-LUFS-16-processed.flac"},
-		{"uppercase WAV", "/tmp/foo.WAV", "/tmp/foo-LUFS-16-processed.flac"},
-		{"flac input", "/tmp/foo.flac", "/tmp/foo-LUFS-16-processed.flac"},
-		{"mp3 input", "/tmp/foo.mp3", "/tmp/foo-LUFS-16-processed.flac"},
-		{"no extension", "/tmp/foo", "/tmp/foo-LUFS-16-processed.flac"},
-		{"multi-dot", "/tmp/foo.bar.wav", "/tmp/foo.bar-LUFS-16-processed.flac"},
+		{"lowercase wav default flac", "/tmp/foo.wav", ".flac", "/tmp/foo-LUFS-16-processed.flac"},
+		{"uppercase WAV default flac", "/tmp/foo.WAV", ".flac", "/tmp/foo-LUFS-16-processed.flac"},
+		{"flac input default flac", "/tmp/foo.flac", ".flac", "/tmp/foo-LUFS-16-processed.flac"},
+		{"mp3 input default flac", "/tmp/foo.mp3", ".flac", "/tmp/foo-LUFS-16-processed.flac"},
+		{"no extension default flac", "/tmp/foo", ".flac", "/tmp/foo-LUFS-16-processed.flac"},
+		{"multi-dot default flac", "/tmp/foo.bar.wav", ".flac", "/tmp/foo.bar-LUFS-16-processed.flac"},
+		{"lowercase wav mp3", "/tmp/foo.wav", ".mp3", "/tmp/foo-LUFS-16-processed.mp3"},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := generateLUFSOutputPath(tc.input, 16)
+			got := generateLUFSOutputPath(tc.input, 16, tc.outputExt)
 			if got != tc.want {
-				t.Errorf("generateLUFSOutputPath(%q, 16) = %q, want %q", tc.input, got, tc.want)
+				t.Errorf("generateLUFSOutputPath(%q, 16, %q) = %q, want %q", tc.input, tc.outputExt, got, tc.want)
 			}
 		})
 	}
@@ -43,13 +45,13 @@ func TestCreateSiblingTempPath(t *testing.T) {
 	dir := t.TempDir()
 	targetPath := filepath.Join(dir, "presenter.wav")
 
-	first, err := createSiblingTempPath(targetPath, "processing")
+	first, err := createSiblingTempPath(targetPath, "processing", ".flac")
 	if err != nil {
 		t.Fatalf("createSiblingTempPath() first call failed: %v", err)
 	}
 	defer os.Remove(first)
 
-	second, err := createSiblingTempPath(targetPath, "processing")
+	second, err := createSiblingTempPath(targetPath, "processing", ".flac")
 	if err != nil {
 		t.Fatalf("createSiblingTempPath() second call failed: %v", err)
 	}
@@ -813,8 +815,8 @@ func TestProcessAudioFinalCollisionPreservesOutputAndCleansTemp(t *testing.T) {
 
 	var tempPaths []string
 	oldCreateSiblingTempPath := processorCreateSiblingTempPath
-	processorCreateSiblingTempPath = func(targetPath, marker string) (string, error) {
-		tempPath, err := oldCreateSiblingTempPath(targetPath, marker)
+	processorCreateSiblingTempPath = func(targetPath, marker, ext string) (string, error) {
+		tempPath, err := oldCreateSiblingTempPath(targetPath, marker, ext)
 		if err == nil && marker == "processing" {
 			tempPaths = append(tempPaths, tempPath)
 		}

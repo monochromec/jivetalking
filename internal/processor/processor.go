@@ -111,7 +111,10 @@ func ProcessAudio(inputPath string, config *BaseFilterConfig, progressCallback P
 		})
 	}
 
-	outputPath, err := processorCreateSiblingTempPath(inputPath, "processing")
+	// Determine the output extension from the caller-provided config.
+	outputExt := normalizeExtension(config.OutputFormat)
+
+	outputPath, err := processorCreateSiblingTempPath(inputPath, "processing", outputExt)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create pass 2 temp output: %w", err)
 	}
@@ -190,7 +193,7 @@ func ProcessAudio(inputPath string, config *BaseFilterConfig, progressCallback P
 
 	// Rename output file to include LUFS value: <name>-processed.<ext> → <name>-LUFS-NN-processed.<ext>
 	lufsValue := int(math.Abs(result.OutputLUFS))
-	finalPath := generateLUFSOutputPath(inputPath, lufsValue)
+	finalPath := generateLUFSOutputPath(inputPath, lufsValue, outputExt)
 	if err := renameNoClobber(outputPath, finalPath); err != nil {
 		return nil, fmt.Errorf("failed to publish output: %w", err)
 	}
@@ -359,12 +362,12 @@ func processWithFilters(inputPath, outputPath string, config *EffectiveFilterCon
 }
 
 // generateLUFSOutputPath creates the final output filename with the measured LUFS value.
-// Output is always FLAC regardless of input extension.
+// Use outputExt to select the final file extension.
 // Example: /path/to/audio.flac → /path/to/audio-LUFS-16-processed.flac
-// Example: /path/to/audio.wav  → /path/to/audio-LUFS-16-processed.flac
-func generateLUFSOutputPath(inputPath string, lufsValue int) string {
+// Example: /path/to/audio.wav  → /path/to/audio-LUFS-16-processed.mp3
+func generateLUFSOutputPath(inputPath string, lufsValue int, outputExt string) string {
 	dir := filepath.Dir(inputPath)
 	filename := filepath.Base(inputPath)
 	nameWithoutExt := strings.TrimSuffix(filename, filepath.Ext(filename))
-	return filepath.Join(dir, fmt.Sprintf("%s-LUFS-%d-processed.flac", nameWithoutExt, lufsValue))
+	return filepath.Join(dir, fmt.Sprintf("%s-LUFS-%d-processed%s", nameWithoutExt, lufsValue, normalizeExtension(outputExt)))
 }

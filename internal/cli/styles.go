@@ -41,6 +41,14 @@ var (
 			Foreground(textColor)
 )
 
+// QuietMode suppresses non-error CLI output when enabled.
+var QuietMode = false
+
+// SetQuiet enables or disables non-error output suppression.
+func SetQuiet(enabled bool) {
+	QuietMode = enabled
+}
+
 // PrintVersion prints version information
 func PrintVersion(version string) {
 	fmt.Println(TitleStyle.Render("Jivetalking 🕺"))
@@ -55,5 +63,8 @@ func PrintError(message string) {
 
 // PrintWarning prints a warning message
 func PrintWarning(message string) {
+	if QuietMode {
+		return
+	}
 	fmt.Fprintf(os.Stderr, "%s %s\n", WarningStyle.Render("Warning:"), message)
 }

@@ -19,26 +19,29 @@ type Encoder struct {
 	streamIdx int
 }
 
-// createOutputEncoder creates an encoder for FLAC output
-// TODO: Add WAV fallback if FLAC encoder is not available
+// createOutputEncoder creates an encoder for the output path's container format.
+// TODO: Add WAV fallback if the desired encoder is not available
 // TODO: Use metadata parameter for output file metadata passthrough
 func createOutputEncoder(outputPath string, _ *audio.Metadata, bufferSinkCtx *ffmpeg.AVFilterContext) (*Encoder, error) {
-	// Allocate output format context
+	// Allocate output format context based on file extension
 	outputPathC := ffmpeg.ToCStr(outputPath)
 	defer outputPathC.Free()
-	fmtNameC := ffmpeg.ToCStr("flac")
-	defer fmtNameC.Free()
 
 	var fmtCtx *ffmpeg.AVFormatContext
-	if _, err := ffmpeg.AVFormatAllocOutputContext2(&fmtCtx, nil, fmtNameC, outputPathC); err != nil {
+	if _, err := ffmpeg.AVFormatAllocOutputContext2(&fmtCtx, nil, nil, outputPathC); err != nil {
 		return nil, fmt.Errorf("failed to allocate output context: %w", err)
 	}
 
-	// Find FLAC encoder
-	codec := ffmpeg.AVCodecFindEncoder(ffmpeg.AVCodecIdFlac)
+	codecID := fmtCtx.Oformat().AudioCodec()
+	if codecID == ffmpeg.AVCodecIdNone {
+		ffmpeg.AVFormatFreeContext(fmtCtx)
+		return nil, fmt.Errorf("no audio codec configured for output format: %s", outputPath)
+	}
+
+	codec := ffmpeg.AVCodecFindEncoder(codecID)
 	if codec == nil {
 		ffmpeg.AVFormatFreeContext(fmtCtx)
-		return nil, fmt.Errorf("FLAC encoder not found for output: %s", outputPath)
+		return nil, fmt.Errorf("encoder not found for codec %v and output: %s", codecID, outputPath)
 	}
 
 	// Create stream
@@ -86,7 +89,7 @@ func createOutputEncoder(outputPath string, _ *audio.Metadata, bufferSinkCtx *ff
 	// Set default channel layout for the encoder
 	ffmpeg.AVChannelLayoutDefault(encCtx.ChLayout(), channels)
 
-	// Set compression level for FLAC
+	// Set codec-specific encoder options.
 	if codec.Id() == ffmpeg.AVCodecIdFlac {
 		if _, err := ffmpeg.AVOptSetInt(encCtx.RawPtr(), ffmpeg.GlobalCStr("compression_level"), 5, 0); err != nil {
 			ffmpeg.AVCodecFreeContext(&encCtx)
@@ -95,6 +98,9 @@ func createOutputEncoder(outputPath string, _ *audio.Metadata, bufferSinkCtx *ff
 		}
 		// FLAC encoder requires fixed frame size - must match asetnsamples filter (4096)
 		encCtx.SetFrameSize(4096)
+	} else if codec.Id() == ffmpeg.AVCodecIdMp3 {
+		// Use a standard spoken-word MP3 bitrate.
+		encCtx.SetBitRate(128000)
 	}
 
 	// Set global header flag if needed by the format
