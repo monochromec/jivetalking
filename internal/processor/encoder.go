@@ -58,11 +58,19 @@ func createOutputEncoder(outputPath string, _ *audio.Metadata, bufferSinkCtx *ff
 		return nil, fmt.Errorf("failed to allocate encoder context for output: %s", outputPath)
 	}
 
-	// Get audio parameters from filter output (we only need sample rate, format is set to S16 via aformat filter)
-	if _, err := ffmpeg.AVBuffersinkGetFormat(bufferSinkCtx); err != nil { // Verify filter output is configured
+	// Get audio parameters from filter output and ensure encoder uses the filter-compatible format.
+	sampleFmtInt, err := ffmpeg.AVBuffersinkGetFormat(bufferSinkCtx)
+	if err != nil {
 		ffmpeg.AVCodecFreeContext(&encCtx)
 		ffmpeg.AVFormatFreeContext(fmtCtx)
 		return nil, fmt.Errorf("failed to get sample format: %w", err)
+	}
+
+	sampleFmt := ffmpeg.AVSampleFormat(sampleFmtInt)
+	if sampleFmt == ffmpeg.AVSampleFmtNone {
+		ffmpeg.AVCodecFreeContext(&encCtx)
+		ffmpeg.AVFormatFreeContext(fmtCtx)
+		return nil, fmt.Errorf("failed to get sample format from filter output")
 	}
 
 	sampleRate, err := ffmpeg.AVBuffersinkGetSampleRate(bufferSinkCtx)
@@ -74,8 +82,8 @@ func createOutputEncoder(outputPath string, _ *audio.Metadata, bufferSinkCtx *ff
 
 	timeBase := ffmpeg.AVBuffersinkGetTimeBase(bufferSinkCtx)
 
-	// Configure encoder - FLAC supports S16 and S32, we use S16 which matches our aformat filter
-	encCtx.SetSampleFmt(ffmpeg.AVSampleFmtS16)
+	// Configure encoder using the filter output format.
+	encCtx.SetSampleFmt(sampleFmt)
 	encCtx.SetSampleRate(sampleRate)
 
 	// Get channel count from filter output and set default channel layout
@@ -101,6 +109,7 @@ func createOutputEncoder(outputPath string, _ *audio.Metadata, bufferSinkCtx *ff
 	} else if codec.Id() == ffmpeg.AVCodecIdMp3 {
 		// Use a standard spoken-word MP3 bitrate.
 		encCtx.SetBitRate(128000)
+		encCtx.SetFrameSize(1152)
 	}
 
 	// Set global header flag if needed by the format

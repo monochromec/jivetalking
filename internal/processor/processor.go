@@ -260,8 +260,9 @@ func processWithFilters(inputPath, outputPath string, config *EffectiveFilterCon
 	sampleRate := float64(metadata.SampleRate)
 
 	// Calculate total frames estimate (duration * sample_rate / samples_per_frame)
-	// For FLAC, typical frame size is 4096 samples
-	samplesPerFrame := 4096.0
+	// Use the required output frame size so progress remains accurate for formats
+	// with fixed frame sizes such as MP3.
+	samplesPerFrame := float64(config.requiredOutputFrameSize())
 	estimatedTotalFrames := (totalDuration * sampleRate) / samplesPerFrame
 
 	// Create filter graph with complete processing chain

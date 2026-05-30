@@ -107,6 +107,8 @@ jivetalking [flags] <files...>
 |------|-------------|
 | `-v, --version` | Show version and exit |
 | `-a, --analysis-only` | Run analysis only (Pass 1), display results, skip processing |
+| `-q, --quiet`| Suppress any output |
+| `--mp3`| Generate MP3 instead of FLAC |
 | `-d, --debug` | Enable debug logging to `jivetalking-debug.log` |
 | `--silence-scan-duration=DURATION` | Cap silence-candidate scan to the first `DURATION` of input (e.g. `30s`, `1m30s`). Default `0s` scans the whole file |
 

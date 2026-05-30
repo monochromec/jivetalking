@@ -116,6 +116,9 @@ type filterConfigDefaults struct {
 	Adeclick      AdeclickConfig
 	Loudnorm      LoudnormConfig
 
+	// OutputFormat controls the encoder-compatible output format.
+	OutputFormat string
+
 	// Filter chain order - controls the sequence of filters in the processing chain
 	// Use Pass2FilterOrder or customise for experimentation
 	FilterOrder []FilterID
@@ -239,10 +242,6 @@ func (linear LinearAmplitude) Float64() float64 {
 // BaseFilterConfig holds caller-owned defaults and user-facing options only.
 type BaseFilterConfig struct {
 	filterConfigDefaults
-
-	// OutputFormat controls the format used for the final encoded output.
-	// Supported values: "flac", "mp3".
-	OutputFormat string
 }
 
 // AdaptiveFilterResult holds a complete per-file set of tunable filter values.
@@ -313,10 +312,9 @@ type EffectiveFilterConfig filterConfigDefaults
 // DefaultFilterConfig returns the scientifically-tuned caller-owned defaults for
 // podcast spoken word audio processing.
 func DefaultFilterConfig() *BaseFilterConfig {
-	return &BaseFilterConfig{
-		filterConfigDefaults: defaultFilterConfigDefaults(),
-		OutputFormat:         "flac",
-	}
+	defaults := defaultFilterConfigDefaults()
+	defaults.OutputFormat = "flac"
+	return &BaseFilterConfig{filterConfigDefaults: defaults}
 }
 
 func defaultFilterConfigDefaults() filterConfigDefaults {
@@ -634,9 +632,33 @@ func (cfg *EffectiveFilterConfig) buildResampleFilter() string {
 // Use this when a pass must restore encoder-compatible audio regardless of
 // Resample.Enabled.
 func (cfg *EffectiveFilterConfig) buildRequiredOutputFormatFilter() string {
-	resample := cfg.Resample
 	return fmt.Sprintf("aformat=sample_rates=%d:channel_layouts=mono:sample_fmts=%s,asetnsamples=n=%d",
-		resample.SampleRate, resample.Format, resample.FrameSize)
+		cfg.Resample.SampleRate, cfg.requiredOutputSampleFmt(), cfg.requiredOutputFrameSize())
+}
+
+func (cfg *EffectiveFilterConfig) requiredOutputSampleFmt() string {
+	switch strings.ToLower(cfg.OutputFormat) {
+	case "mp3":
+		switch strings.ToLower(cfg.Resample.Format) {
+		case "s32":
+			return "s32p"
+		case "fltp":
+			return "fltp"
+		default:
+			return "s16p"
+		}
+	default:
+		return cfg.Resample.Format
+	}
+}
+
+func (cfg *EffectiveFilterConfig) requiredOutputFrameSize() int {
+	switch strings.ToLower(cfg.OutputFormat) {
+	case "mp3":
+		return 1152
+	default:
+		return cfg.Resample.FrameSize
+	}
 }
 
 // buildDS201HighpassFilter builds the DS201-inspired high-pass filter.

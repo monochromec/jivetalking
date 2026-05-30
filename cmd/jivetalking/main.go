@@ -37,7 +37,7 @@ type CLI struct {
 	Debug               bool          `short:"d" help:"Enable debug logging to jivetalking-debug.log"`
 	AnalysisOnly        bool          `short:"a" help:"Run analysis only (Pass 1), display results, skip processing"`
 	Quiet               bool          `short:"q" help:"Suppress non-error console output"`
-	MP3                 bool          `help:"Write MP3 output instead of FLAC"`
+	MP3                 bool          `short:"m" help:"Write MP3 output instead of FLAC" name:"mp3"`
 	SilenceScanDuration time.Duration `help:"Cap silence-candidate scan to the first DURATION of input (e.g. 30s, 1m30s). Faster on long files at the cost of coverage; loudness, true peak, LRA, spectral, and speech analysis remain whole-file. Fewer silence candidates also reach voice-activated detection when capped. 0s means scan the whole file." placeholder:"DURATION" default:"0s"`
 	Files               []string      `arg:"" name:"files" help:"Audio files to process" type:"existingfile" optional:""`
 }
