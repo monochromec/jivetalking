@@ -138,6 +138,7 @@ type ResampleConfig struct {
 	SampleRate int
 	Format     string
 	FrameSize  int
+	KeepRate   bool
 }
 
 type DS201HighPassConfig struct {
@@ -620,12 +621,23 @@ func (cfg *EffectiveFilterConfig) buildAnalysisFilter() string {
 // buildResampleFilter builds the output format standardisation filter.
 // Ensures consistent output: 44.1kHz, 16-bit, mono, fixed frame size.
 // Pass 2 only - applied after all processing and analysis.
+// If KeepRate is true, only adjusts channel layout and sample format, preserving sample rate.
 func (cfg *EffectiveFilterConfig) buildResampleFilter() string {
 	resample := cfg.Resample
 	if !resample.Enabled {
 		return ""
 	}
+	if resample.KeepRate {
+		return cfg.buildKeptRateOutputFormatFilter()
+	}
 	return cfg.buildRequiredOutputFormatFilter()
+}
+
+// buildKeptRateOutputFormatFilter builds an output format filter that preserves sample rate.
+// Adjusts only channel layout and sample format, leaving sample rate unchanged.
+func (cfg *EffectiveFilterConfig) buildKeptRateOutputFormatFilter() string {
+	return fmt.Sprintf("aformat=channel_layouts=mono:sample_fmts=%s,asetnsamples=n=%d",
+		cfg.requiredOutputSampleFmt(), cfg.requiredOutputFrameSize())
 }
 
 // buildRequiredOutputFormatFilter builds the mandatory output format filter.

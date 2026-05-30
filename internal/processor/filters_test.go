@@ -1458,6 +1458,7 @@ func TestBuildResampleFilter(t *testing.T) {
 		config.Resample.SampleRate = 44100
 		config.Resample.Format = "s16"
 		config.Resample.FrameSize = 4096
+		config.Resample.KeepRate = false
 
 		result := config.buildResampleFilter()
 
@@ -1473,6 +1474,7 @@ func TestBuildResampleFilter(t *testing.T) {
 		config.Resample.SampleRate = 48000
 		config.Resample.Format = "s32"
 		config.Resample.FrameSize = 2048
+		config.Resample.KeepRate = false
 
 		result := config.buildResampleFilter()
 
@@ -1482,9 +1484,37 @@ func TestBuildResampleFilter(t *testing.T) {
 		}
 	})
 
+	t.Run("keep-rate preserves sample rate without resampling", func(t *testing.T) {
+		config := newTestConfig()
+		config.Resample.Enabled = true
+		config.Resample.SampleRate = 44100
+		config.Resample.Format = "s16"
+		config.Resample.FrameSize = 4096
+		config.Resample.KeepRate = true
+
+		result := config.buildResampleFilter()
+
+		// Should NOT contain sample_rates specification
+		if strings.Contains(result, "sample_rates=") {
+			t.Errorf("buildResampleFilter() with KeepRate should not specify sample_rates, got %q", result)
+		}
+
+		// Should contain channel layout and format
+		if !strings.Contains(result, "channel_layouts=mono") {
+			t.Errorf("buildResampleFilter() missing channel_layouts=mono, got %q", result)
+		}
+		if !strings.Contains(result, "sample_fmts=s16") {
+			t.Errorf("buildResampleFilter() missing sample_fmts=s16, got %q", result)
+		}
+		if !strings.Contains(result, "asetnsamples=n=4096") {
+			t.Errorf("buildResampleFilter() missing asetnsamples=n=4096, got %q", result)
+		}
+	})
+
 	t.Run("disabled returns empty string", func(t *testing.T) {
 		config := newTestConfig()
 		config.Resample.Enabled = false
+		config.Resample.KeepRate = false
 
 		result := config.buildResampleFilter()
 
