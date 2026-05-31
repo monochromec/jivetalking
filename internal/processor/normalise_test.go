@@ -2260,6 +2260,38 @@ func TestBuildLoudnormFilterSpec_DoesNotMutateConfig(t *testing.T) {
 	}
 }
 
+func TestBuildLoudnormFilterSpec_KeepRatePreservesSampleRate(t *testing.T) {
+	config := defaultNormalisationTestConfig()
+	config.Resample.Enabled = false
+	config.Resample.KeepRate = true
+	config.Resample.SampleRate = 48000
+	config.Resample.Format = "s32"
+	config.Resample.FrameSize = 2048
+
+	measurement := &LoudnormMeasurement{
+		InputI:       -24.0,
+		InputTP:      -5.0,
+		InputLRA:     6.0,
+		InputThresh:  -34.0,
+		TargetOffset: -0.5,
+	}
+
+	filterSpec := buildLoudnormFilterSpec(config, measurement, 0, -1.0, false)
+
+	if strings.Contains(filterSpec, "sample_rates=") {
+		t.Errorf("buildLoudnormFilterSpec() with KeepRate should not resample, got %q", filterSpec)
+	}
+	if !strings.Contains(filterSpec, "channel_layouts=mono") {
+		t.Errorf("buildLoudnormFilterSpec() missing channel_layouts=mono, got %q", filterSpec)
+	}
+	if !strings.Contains(filterSpec, "sample_fmts=s32") {
+		t.Errorf("buildLoudnormFilterSpec() missing sample_fmts=s32, got %q", filterSpec)
+	}
+	if !strings.Contains(filterSpec, "asetnsamples=n=2048") {
+		t.Errorf("buildLoudnormFilterSpec() missing asetnsamples=n=2048, got %q", filterSpec)
+	}
+}
+
 func TestBuildLoudnormFilterSpec_Adeclick(t *testing.T) {
 	measurement := &LoudnormMeasurement{
 		InputI:       -24.0,

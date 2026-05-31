@@ -1005,9 +1005,14 @@ func buildLoudnormFilterSpec(config *EffectiveFilterConfig, measurement *Loudnor
 	// Note: ebur128 upsamples to 192kHz internally and outputs f64
 	filters = append(filters, "ebur128=metadata=1:peak=sample+true:dualmono=true")
 
-	// 7. Resample back to output format (44.1kHz/s16/mono)
-	// Required because ebur128 outputs f64 at 192kHz; encoder expects s16 at 44.1kHz
-	filters = append(filters, config.buildRequiredOutputFormatFilter())
+	// 7. Resample back to output format, preserving sample rate if requested.
+	// Required because ebur128 outputs f64 at 192kHz; encoder expects s16 at the
+	// target output sample rate.
+	if config.Resample.KeepRate {
+		filters = append(filters, config.buildKeptRateOutputFormatFilter())
+	} else {
+		filters = append(filters, config.buildRequiredOutputFormatFilter())
+	}
 
 	return strings.Join(filters, ",")
 }
