@@ -39,6 +39,7 @@ type CLI struct {
 	Quiet               bool          `short:"q" help:"Suppress non-error console output"`
 	MP3                 bool          `short:"m" help:"Write MP3 output instead of FLAC" name:"mp3"`
 	KeepRate            bool          `short:"k" help:"Keep original sample rate instead of resampling to 44.1 kHz" name:"keep-rate"`
+	Force               bool          `short:"f" help:"Overwrite existing MP3 or FLAC output files" name:"force"`
 	SilenceScanDuration time.Duration `help:"Cap silence-candidate scan to the first DURATION of input (e.g. 30s, 1m30s). Faster on long files at the cost of coverage; loudness, true peak, LRA, spectral, and speech analysis remain whole-file. Fewer silence candidates also reach voice-activated detection when capped. 0s means scan the whole file." placeholder:"DURATION" default:"0s"`
 	Files               []string      `arg:"" name:"files" help:"Audio files to process" type:"existingfile" optional:""`
 }
@@ -119,7 +120,7 @@ func main() {
 	}
 
 	if quiet {
-		runProcessingQuietly(cliArgs.Files, config, log)
+		runProcessingQuietly(cliArgs.Files, config, cliArgs.Force, log)
 		return
 	}
 
@@ -151,7 +152,7 @@ func main() {
 			// Process the audio file
 			pass2Start := time.Now()
 			log("[MAIN] Starting ProcessAudio for %s", inputPath)
-			result, err := processor.ProcessAudio(inputPath, config, ph.callback)
+			result, err := processor.ProcessAudio(inputPath, config, cliArgs.Force, ph.callback)
 			if err != nil {
 				log("[MAIN] ProcessAudio failed: %v", err)
 				p.Send(ui.FileCompleteMsg{
@@ -332,12 +333,12 @@ func runAnalysisOnlyQuietly(files []string, config *processor.BaseFilterConfig, 
 	}
 }
 
-func runProcessingQuietly(files []string, config *processor.BaseFilterConfig, log func(string, ...any)) {
+func runProcessingQuietly(files []string, config *processor.BaseFilterConfig, force bool, log func(string, ...any)) {
 	for _, inputPath := range files {
 		fileStartTime := time.Now()
 		log("[MAIN] Starting silent processing for %s", inputPath)
 
-		result, err := processor.ProcessAudio(inputPath, config, nil)
+		result, err := processor.ProcessAudio(inputPath, config, force, nil)
 		if err != nil {
 			cli.PrintError(fmt.Sprintf("Processing failed for %s: %v", inputPath, err))
 			continue
